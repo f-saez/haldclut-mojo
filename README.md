@@ -5,13 +5,13 @@ HaldCLUT code for Mojo
 
 There are basically 3 types of graphical LUT.
 
-- This one (HaldCLUT) that came from video-game world : fast and GPU-friendly. It is the less precise (bilinear interpolation) of the bunch but no one cares. It's nothing more than a square image and you can store and them in lossless compression PNG, QOI or you own format (ZSTD/LZ4/... compression for example). Obviously a PNG 16 bits will offer more precision than a PNG 8 bits.
+-(HaldCLUT : This one came from video-game world : fast and GPU-friendly. It is the less precise (bilinear interpolation) of the bunch but no one cares. It's nothing more than a square image and you can store and them in lossless compression PNG, QOI or you own format (ZSTD/LZ4/... compression for example). Obviously, a PNG 16 bits will offer more precision than a PNG 8 bits as long as they have the same level.
 
 - The Cube3D files, that came from grading/movie world. A little less faster, but more precise (Tetrahedral interpolation : 
 https://blogs.mathworks.com/steve/2006/11/24/tetrahedral-interpolation-for-colorspace-conversion/). 
 It's just a text file and it could become quite "big"
 
-- The parametrical ones, but they're not really LUT anymore. Instead of relying on a bunch a discrete data (some Cube3D file are quite big), we rely on equations. It solves the problem of precision and the problem "the name of my interpolation sounds cooler than yours". But that's a story I will told you another day :-)
+- The parametrical ones, but they're not really LUT anymore. Instead of relying on a bunch a discrete data (some Cube3D file are quite big), we rely on equations. It solves the problem of precision and the problem of "the name of my interpolation sounds way cooler than yours". But that's a story I will told you another day :-)
 
 
 ## Enough talk ! I wanna play !
