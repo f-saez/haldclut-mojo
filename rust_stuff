@@ -1,0 +1,156 @@
+use std::arch::x86_64::*;
+
+fn main() {
+    unsafe {
+        let clut = [10.,20.,30.,40.];
+        let ptr_clut = clut.as_ptr();
+        let width = 1024;
+
+        let level = 144;
+        println!("level : {:?}", level);
+    	let level_square = level * level;
+    	let level255 = 255. / (level - 1) as f32;
+    	//let pslevel255 =  _mm_set1_ps(1./level255);
+    	let coef_color =  _mm_set_ps(0., level_square as f32, level as f32, 1.);
+    	//let pslevel2 =  _mm_set1_ps((level - 2)as f32);
+		let ps0 =  _mm_setzero_ps();
+		let ps1 =  _mm_set_ps1(1.0);
+		let ps255 =  _mm_set_ps1(255.0);
+		let epi32_0 = _mm_set1_epi32(0);
+		let epi32_255 = _mm_set1_epi32(255);      	
+    	let coef = _mm_set_ps1(0.25);
+    	let coef1 = _mm_sub_ps(ps1, coef);
+    	let zz = 0isize;
+    
+    	let level4 = _mm_set1_epi32(level as i32 * 4 );
+    	let level_square4 = _mm_set1_epi32(level_square as i32 * 4);
+    	let level4_level_square4 = _mm_add_epi32(level4, level_square4);
+ 
+		let level_square = level * level;
+		//let level255 = 255. / (level - 1) as f32;
+		let pslevel255 = _mm_set1_ps(1./level255);
+		let pslevel2 = _mm_set1_ps((level - 2)as f32);
+		let coef_color = _mm_set_ps(0., level_square as f32, level as f32, 1.);
+	    println!("pslevel2 : {:?}", pslevel2);
+	    println!("ps0 : {:?}", ps0);
+        println!("level255 : {:?}   ps_level255={:?}", level255, pslevel255);
+        println!("coef_color : {:?}", coef_color);
+        println!("level4_level_square4 : {:?} {:?}", level4_level_square4, _mm_extract_epi32::<0>(level4_level_square4));
+        
+        let r_src = 246 as f32;
+		let g_src = 248 as f32;
+		let b_src = 227 as f32;
+        println!("r_src : {}", r_src);
+        println!("g_src : {}", g_src);
+        println!("b_src : {}", b_src);
+        
+		let r_src_255 = r_src / level255;
+		let g_src_255 = g_src / level255;
+		let b_src_255 = b_src / level255;
+
+        println!("r_src_255 : {}", r_src_255);
+        println!("g_src_255 : {}", g_src_255);
+        println!("b_src_255 : {}", b_src_255);
+        
+		let rgb_src = _mm_set_ps(255., b_src, g_src, r_src);
+		println!("rgb_src : {:?}", rgb_src);
+		let r0 = _mm_mul_ps(rgb_src, pslevel255);
+		println!("r0 : {:?}", r0);
+		let r0 = _mm_round_ps::<{_MM_ROUND_NEAREST as i32 | _MM_FROUND_NO_EXC as i32}>( r0); // passage en valeurs entières via un trunc()
+        println!("r0 : {:?}", r0);
+		let tmp = _mm_max_ps(r0, ps0);
+		println!("_mm_max_ps(r0, ps0) => tmp : {:?}", tmp);
+		let tmp = _mm_min_ps(tmp, pslevel2);
+        println!("_mm_min_ps(tmp, pslevel2) => tmp : {:?}", tmp);
+		let tmp = _mm_mul_ps(tmp, coef_color);
+        println!("tmp : {:?}", tmp);
+		let (i, i1, i2, i3) = {
+			let tmp = _mm_hadd_ps(tmp, ps0);
+			let tmp = _mm_hadd_ps(tmp, ps0);
+			let tmp = _mm_cvtps_epi32( tmp);
+			let i   = _mm_mul_epi32(tmp, _mm_set1_epi32(4) );
+			let i1 = _mm_add_epi32(i, level4);
+			let i2 = _mm_add_epi32(i, level_square4);
+			let i3 = _mm_add_epi32(i, level4_level_square4);
+			println!("i={:?}\ni1={:?}\ni2={:?}\ni3={:?} / {:?}", i,i1,i2,i3, _mm_extract_epi32::<0>(i3) as isize);
+			(
+				_mm_extract_epi32::<0>(i) as isize,
+				_mm_extract_epi32::<0>(i1) as isize,
+				_mm_extract_epi32::<0>(i2) as isize,
+				_mm_extract_epi32::<0>(i3) as isize
+			)
+		};
+        println!("i={}\ni1={}\ni2={}\ni3={}", i,i1,i2,i3);
+		let r = _mm_set_ps1(r_src_255.fract());
+		let g = _mm_set_ps1(g_src_255.fract());
+		let b = _mm_set_ps1(b_src_255.fract());
+
+		let r1 = _mm_sub_ps(ps1, r);
+		let g1 = _mm_sub_ps(ps1, g);
+		let b1 = _mm_sub_ps(ps1, b);
+
+		let tmp0 = {
+			let tmpa = _mm_load_ps(ptr_clut.offset(i));
+			let tmpa = _mm_mul_ps(tmpa,r1);
+			let tmpb = _mm_load_ps(ptr_clut.offset(i+4));
+			let tmpb = _mm_mul_ps(tmpb,r);
+			_mm_add_ps(tmpa,tmpb)
+		};
+
+		let tmp1 = {
+			let tmpa = _mm_load_ps(ptr_clut.offset(i1));
+			let tmpa = _mm_mul_ps(tmpa,r1);
+			let tmpb = _mm_load_ps(ptr_clut.offset(i1+4));
+			let tmpb = _mm_mul_ps(tmpb,r);
+			_mm_add_ps(tmpa,tmpb)
+		};
+		let dst0 = {
+			let tmpa = _mm_mul_ps(tmp0,g1);
+			let tmpb = _mm_mul_ps(tmp1,g);
+			_mm_add_ps(tmpa,tmpb)
+		};
+
+		let tmp0 = {
+			let tmpa = _mm_load_ps(ptr_clut.offset(i2));
+			let tmpa = _mm_mul_ps(tmpa,r1);
+			let tmpb = _mm_load_ps(ptr_clut.offset(i2+4));
+			let tmpb = _mm_mul_ps(tmpb,r);
+			_mm_add_ps(tmpa,tmpb)
+		};
+
+		let tmp1 = {
+			let tmpa = _mm_load_ps(ptr_clut.offset(i3));
+			let tmpa = _mm_mul_ps(tmpa,r1);
+			let tmpb = _mm_load_ps(ptr_clut.offset(i3+4));
+			let tmpb = _mm_mul_ps(tmpb,r);
+			_mm_add_ps(tmpa,tmpb)
+		};
+
+		let tmp = {
+			let tmpa =  _mm_mul_ps(tmp0,g1);
+			let tmpb =  _mm_mul_ps(tmp1,g);
+			_mm_add_ps(tmpa,tmpb)
+		};
+
+		let dst = {
+			let tmpa = _mm_mul_ps(dst0, b1);
+			let tmpb = _mm_mul_ps(tmp, b);
+			_mm_mul_ps(_mm_add_ps(tmpa, tmpb), ps255)// passage de [0.0-1.0]f32 à [0-255]f32
+		};
+
+
+		let dst = {
+			let tmpa = _mm_mul_ps(dst, coef);
+			let tmpb = _mm_mul_ps( rgb_src, coef1);
+			_mm_add_ps(tmpa, tmpb)
+		};
+
+		let temp = _mm_cvtps_epi32(dst);
+		let temp = _mm_max_epi32(temp, epi32_0);
+		let temp = _mm_min_epi32(temp, epi32_255);
+
+        println!("r : {}",_mm_extract_epi32::<0>(temp) as u8);
+        println!("g : {}",_mm_extract_epi32::<1>(temp) as u8);
+        println!("b : {}",_mm_extract_epi32::<2>(temp) as u8);
+	}
+}
