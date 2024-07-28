@@ -11,5 +11,6 @@ def main():
 
         img = Image.from_ppm(Path("validation").joinpath("woman"))
 
-        haldclut.process(img, 0.22)
+        haldclut.process(img, 0.22, 16)
         _ = img.to_ppm(Path("validation").joinpath("result"))
+
