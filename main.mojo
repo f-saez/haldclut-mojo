@@ -10,7 +10,10 @@ def main():
         haldclut = aaa.take()
 
         img = Image.from_ppm(Path("validation").joinpath("woman"))
-
-        haldclut.process(img, 0.22, 16)
+        tic = now()
+        haldclut.process(img, 0.22, 8)
+        t = Float64(now() - tic) / 1e6
+        print("time : ",t," ms")
+        print("MPixels/s : ", img.get_mpixels()/t*1000)
         _ = img.to_ppm(Path("validation").joinpath("result"))
 

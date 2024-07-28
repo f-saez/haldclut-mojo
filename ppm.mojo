@@ -131,48 +131,8 @@ struct Image:
         return 4
 
     @always_inline
-    fn __calc_adr__(self,x : Int, y : Int) -> Int:
-        """
-            return the adress of a pixel located at (x,y)
-            doesn't check if x or y are off-limit.
-        """
-        return x*self._bpp+y*self._stride  # TODO need to clamp adr
-
-    @always_inline
-    fn get_at(self, x : Int, y : Int) -> (UInt8, UInt8, UInt8, UInt8):
-        """
-            return 4 uint8 of a pixel located at (x,y).
-        """
-        var ptr = self.get_SIMD_at[4](x,y)
-        var r = ptr[0]
-        var g = ptr[1]
-        var b = ptr[2]
-        var a = ptr[3]
-        return (r,g,b,a)
-    
-    @always_inline
-    fn get_SIMD_at[count:Int](self, x : Int, y : Int) -> SIMD[DType.uint8,count]:
-        """
-            return [count] uint8 of one or more pixel located at (x,y).
-            if count==4 => return the pixel at (x,y)
-            if count==8 => return the pixel at (x,y) and the pixel at (x+1,y).
-            doesn't make sense to use anything else thant 4 or 8, at least for now
-            doesn't check if x or y are off-limit.
-        """
-        var adr = self.__calc_adr__(x,y)
-        return self.pixels.load[width=count](adr)
-    
-    @always_inline
-    fn write_SIMD_at[count:Int](self, x : Int, y : Int, v : SIMD[DType.uint8,count]):
-        """
-            write [count] uint8 of one or more pixel located at (x,y).
-            if count==4 => write the pixel at (x,y)
-            if count==8 => write the pixel at (x,y) and the pixel at (x+1,y).
-            doesn't make sense to use anything else thant 4 or 8, at least for now
-            doesn't check if x or y are off-limit.
-        """
-        var adr = self.__calc_adr__(x,y)
-        return self.pixels.store[width=count](adr,v)
+    fn get_mpixels(self) -> Float32:
+        return Float32(self.get_height()*self.get_width()) / Float32(1024*1024)
 
     @staticmethod
     fn validation() raises :      
