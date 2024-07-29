@@ -36,6 +36,3 @@ if aaa:
     haldclut.process(img, 0.22,8)
     _ = img.to_ppm(Path("validation").joinpath("result"))
 ```
-
-### TODO
- - Write some code to downscale a LUT. Sometimes, no one needs a level 12 LUT when a level 8 looks the same and is faster.
