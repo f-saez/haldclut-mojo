@@ -33,6 +33,7 @@ if aaa:
     img = Image.from_ppm(Path("validation").joinpath("woman"))
     # 0.22 is the % of the LUT that will be applied to the image. Beware of high values !
     # 8 is the number of threads
-    haldclut.process(img, 0.22,8)
+    haldclut1.set_num_threads(8)  # processing with 8 threads
+    haldclut.process(img, 0.22)
     _ = img.to_ppm(Path("validation").joinpath("result"))
 ```
