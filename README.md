@@ -5,7 +5,7 @@ HaldCLUT code for Mojo
 
 There are basically 3 types of graphical LUT.
 
--(HaldCLUT : This one came from video-game world : fast and GPU-friendly. It is the less precise (bilinear interpolation) of the bunch but no one cares. It's nothing more than a square image and you can store and them in lossless compression PNG, QOI or you own format (ZSTD/LZ4/... compression for example). Obviously, a PNG 16 bits will offer more precision than a PNG 8 bits as long as they have the same level.
+- HaldCLUT : This one came from video-game world : fast and GPU-friendly. It is the less precise (bilinear interpolation) of the bunch but no one cares. It's nothing more than a square image and you can store and them in lossless compression PNG, QOI or you own format (ZSTD/LZ4/... compression for example). Obviously, a PNG 16 bits will offer more precision than a PNG 8 bits as long as they have the same level.
 
 - The Cube3D files, that came from grading/movie world. A little less faster, but more precise (Tetrahedral interpolation : 
 https://blogs.mathworks.com/steve/2006/11/24/tetrahedral-interpolation-for-colorspace-conversion/). 
