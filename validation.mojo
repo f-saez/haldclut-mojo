@@ -51,9 +51,23 @@ fn validation() raises :
     var a = HaldClut.from_ppm(Path("validation/haldclut.ppm")) 
     assert_true(a)
     var haldclut = a.take()
-    assert_equal(haldclut.level, 144)
+    assert_equal(haldclut.get_level(), 12)
 
     haldclut.process(img, 0.22)
+    assert_true( almost_equal(img, img_ref) )
+
+    img = Image.from_ppm(Path("validation/woman.ppm")) 
+    img_ref = Image.from_ppm(Path("validation/mask_ref.ppm"))
+    var mask = Image.from_pgm(Path("validation/mask.pgm")) 
+    assert_equal(img.get_width(), img_ref.get_width())
+    assert_equal(img.get_height(), img_ref.get_height())
+    assert_equal(img.get_width(), mask.get_width())
+    assert_equal(img.get_height(), mask.get_height())
+    assert_equal(img.get_bpp(), 4)
+    assert_equal(mask.get_bpp(), 1)
+
+    var r = haldclut.process(img, 0.714, mask)
+    assert_true(r)
     assert_true( almost_equal(img, img_ref) )
 
 def main():

@@ -41,22 +41,23 @@ struct HaldClut:
 					self.clut.store[width=4](i, rgba)
 					i += 4
 					
-
-	@parameter
 	@always_inline
 	fn set_num_threads(inout self, num_threads : Int):
 		if num_threads>0 and num_threads<1024:
 			self._num_threads = num_threads
 
-	@parameter
 	@always_inline
 	fn get_num_threads(self) -> Int:
 		return self._num_threads
 
-	@parameter
 	@always_inline
 	fn get_width(self) -> Int:
 		return self.level_haldclut * self.level
+
+
+	@always_inline
+	fn get_level(self) -> Int:
+		return self.level_haldclut
 
 	fn downsize(self, level : Int) -> Self:
 		var haldclut2 = Self(level)
@@ -116,7 +117,6 @@ struct HaldClut:
 		var width = img.get_width()
 		self.process_4xu8_(img.pixels, width, height, stride, strength)
 
-
 	# TODO : add a fast path for the case where strength=1 
 	fn process_4xu8_(self, pixels : DTypePointer[DType.uint8], width : Int, height : Int, stride : Int, strength : Float32):
 		if strength>0:
@@ -132,7 +132,7 @@ struct HaldClut:
 			var epi32_255 = SIMD[DType.int32,4](255)
 			var ps_level2 = SIMD[DType.float32,4]( Float32(self.level - 2) )
 			var coef_color = SIMD[DType.float32,4](1., Float32(self.level), Float32(self.level_square), 0.) 
-
+			
 			@parameter
 			fn process_line(y : Int):	
 				var idx = y*stride
@@ -180,9 +180,93 @@ struct HaldClut:
 					dst = dst * coef + rgb_src * coef1
 					var rgbi = dst.cast[DType.int32]().clamp(epi32_0, epi32_255)
 					pixels.store[width=4](idx, rgbi.cast[DType.uint8]())
-					idx += 4
-			
+					idx += 4			
+
+				
 			parallelize[process_line](height, self.get_num_threads() )
+
+	fn process(self, inout img : Image, strength : Float32, mask : Image) -> Bool:
+		var stride = img.get_stride()
+		var height = img.get_height()
+		var width = img.get_width()
+		return self.process_4xu8_mask(img.pixels, width, height, stride, strength, mask)
+
+	fn process_4xu8_mask(self, pixels : DTypePointer[DType.uint8], width : Int, height : Int, stride : Int, strength : Float32, mask : Image) -> Bool:
+		var result = strength>0 and mask.get_height()==height and mask.get_width()==width and mask.get_num_channels()==1
+		if result:
+			var coef = SIMD[DType.float32,4](strength)
+			var coef1 = SIMD[DType.float32,4](1.0-strength)			
+			var level4 = self.level*4
+			var level_square4 = self.level_square*4
+			var level4_level_square4 = level4 + level_square4
+			var ps0  = SIMD[DType.float32,4](0)
+			var ps1  = SIMD[DType.float32,4](1)
+			var ps255 = SIMD[DType.float32,4](255)
+			var div255 = SIMD[DType.float32,4](1/255)
+			var epi32_0 = SIMD[DType.int32,4](0)
+			var epi32_255 = SIMD[DType.int32,4](255)
+			var ps_level2 = SIMD[DType.float32,4]( Float32(self.level - 2) )
+			var coef_color = SIMD[DType.float32,4](1., Float32(self.level), Float32(self.level_square), 0.) 
+			
+			@parameter
+			fn process_line(y : Int):	
+				var idx = y*stride
+				var idx_mask = y*mask.get_stride()
+				for _ in range(width):
+					var m = mask.pixels.load[width=1](idx_mask)
+					if m>0:
+						var coef_mask = SIMD[DType.float32,4](m.cast[DType.float32]()) * div255
+						var coef_mask1 = ps1 - coef_mask
+						var rgb_src = pixels.load[width=4](idx).cast[DType.float32]()
+						var rgb_src255 = rgb_src * self.div_level255 
+						var r0 = rgb_src255.__round__()
+						var tmp = r0.max(ps0)
+						tmp = tmp.min(ps_level2)
+						tmp *= coef_color
+
+						var tmp_ = tmp.reduce_add[size_out=1]().cast[DType.int32]()
+						var i = tmp_ * 4
+						var i1 = i + level4
+						var i2 = i + level_square4
+						var i3 = i + level4_level_square4
+						var rgb_fract = rgb_src255 - rgb_src255.__trunc__()
+						var rgb1 = ps1 - rgb_fract
+						
+						var g = SIMD[DType.float32,4](rgb_fract[1])
+						var b = SIMD[DType.float32,4](rgb_fract[2])
+
+						var g1 = SIMD[DType.float32,4](rgb1[1])
+						var b1 = SIMD[DType.float32,4](rgb1[2])
+						
+						var r_r1 = SIMD[DType.float32,8](rgb_fract[0],rgb_fract[0],rgb_fract[0],rgb_fract[0],rgb1[0],rgb1[0],rgb1[0],rgb1[0])
+						var tmpa = self.clut.load[width=8](i)
+						tmpa *= r_r1
+						var tmp0 = tmpa.reduce_add[size_out=4]()
+						tmpa = self.clut.load[width=8](i1)
+						tmpa *= r_r1
+						var tmp1 = tmpa.reduce_add[size_out=4]()
+						var dst0 = tmp0 * g1 + tmp1 * g
+						
+						tmpa = self.clut.load[width=8](i2)
+						tmpa *= r_r1
+						tmp0 = tmpa.reduce_add[size_out=4]()
+
+						tmpa = self.clut.load[width=8](i3)
+						tmpa *= r_r1
+						tmp1 = tmpa.reduce_add[size_out=4]()
+
+						var dst1 = tmp0 * g1 + tmp1 * g
+						var dst = (dst0 * b + dst1 * b1) * ps255
+						dst = dst * coef + rgb_src * coef1
+						dst = dst * coef_mask + rgb_src * coef_mask1
+						var rgbi = dst.cast[DType.int32]().clamp(epi32_0, epi32_255)
+						pixels.store[width=4](idx, rgbi.cast[DType.uint8]())
+					idx += 4
+					idx_mask += mask.get_bpp()			
+
+				
+			parallelize[process_line](height, self.get_num_threads() )
+		return result
 
 	# 4xf32 [0-1]
 	fn process_4xf32_(self, pixels : DTypePointer[DType.float32], width : Int, height : Int, stride : Int, strength : Float32):
@@ -198,7 +282,7 @@ struct HaldClut:
 			var ps_div_255 = ps1 / ps255
 			var ps_level2 = SIMD[DType.float32,4]( Float32(self.level - 2) )
 			var coef_color = SIMD[DType.float32,4](1., Float32(self.level), Float32(self.level_square), 0.) 
-
+			
 			@parameter
 			fn process_line(y : Int):	
 				var idx = y*stride

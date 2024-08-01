@@ -11,7 +11,7 @@ There are basically 3 types of graphical LUT.
 https://blogs.mathworks.com/steve/2006/11/24/tetrahedral-interpolation-for-colorspace-conversion/). 
 It's just a text file and it could become quite "big"
 
-- The parametrical ones, but they're not really LUT anymore. Instead of relying on a bunch a discrete data (some Cube3D file are quite big), we rely on equations. It solves the problem of precision and the problem of "the name of my interpolation sounds way cooler than yours". But that's a story I will told you another day :-)
+- The parametrical ones, but they're not really LUT anymore. Instead of relying on a bunch a discrete data (some Cube3D file can be quite big), we rely on equations. It solves the problem of precision and the problem of "the name of my interpolation sounds way cooler than yours". But that's a story I will tell you another day :-)
 
 
 ## Enough talk ! I wanna play !
@@ -36,4 +36,20 @@ if aaa:
     haldclut1.set_num_threads(8)  # processing with 8 threads
     haldclut.process(img, 0.22)
     _ = img.to_ppm(Path("validation").joinpath("result"))
+```
+
+## what about mask ? I love mask !
+
+You could use a mask. It's a PGM file (not PPM), meaning it's a grayscale (1 x uint8) with the value 0 meaning the pixel is untouched and value 255 meaning the pixel is fully processed. The mask must have the same exact dimensions as the image, for obvious reasons.
+If that's not the case, nothing is processed and the function return False.
+
+```
+aaa = HaldClut.from_ppm( Path("validation").joinpath("grayscale") )
+    if aaa:
+        haldclut = aaa.take()        
+        haldclut.set_num_threads(8)  # processing with 8 threads    
+        img = Image.from_ppm(Path("validation").joinpath("woman")) # PPM
+        mask = Image.from_pgm(Path("validation").joinpath("mask")) # PGM
+        if haldclut.process(img, 0.714, mask):
+            _ = img.to_ppm(Path("validation").joinpath("result_grayscale_mask")) 
 ```
